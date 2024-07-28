@@ -7,6 +7,13 @@ Version: 6.2.0
 """
 
 import aiosqlite
+import datetime
+
+def get_anchor_date():
+    now = datetime.datetime.now()
+    if now.hour < 5:
+        now = now - datetime.timedelta(days=1)
+    return now
 
 
 class DatabaseManager:
@@ -94,3 +101,50 @@ class DatabaseManager:
             for row in result:
                 result_list.append(row)
             return result_list
+
+
+    async def get_or_create_scheduler_for_today(
+        self
+    ) -> int:
+        """
+        This function will get or create a scheduler for today.
+
+        :param user_id: The ID of the user that should be checked.
+        :param server_id: The ID of the server that should be checked.
+        :return: The ID of the scheduler.
+        """
+        now = get_anchor_date()
+        rows = await self.connection.execute(
+            "SELECT id FROM scheduler WHERE date = ?",
+            (
+                now.strftime("%Y-%m-%d"),
+            ),
+        )
+        async with rows as cursor:
+            result = await cursor.fetchone()
+            if result is None:
+                await self.connection.execute(
+                    "INSERT INTO scheduler(date) VALUES (?)",
+                    (
+                        now.strftime("%Y-%m-%d"),
+                    ),
+                )
+                await self.connection.commit()
+                return await self.get_or_create_scheduler_for_today()
+            return result[0]
+
+    async def get_schedule(
+        self
+    ) -> tuple[int, int]:
+        """
+        This function will get or create a scheduler for today.
+
+        :param user_id: The ID of the user that should be checked.
+        :param server_id: The ID of the server that should be checked.
+        :return: The ID of the scheduler.
+        """
+        scheduler = await self.get_or_create_scheduler_for_today()
+        schedule = scheduler['date'].combine(scheduler['time'])
+        if schedule.hour < 5:
+            schedule = schedule + datetime.timedelta(days=1)
+        return schedule, scheduler['draining']

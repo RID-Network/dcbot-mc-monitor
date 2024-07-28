@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "mc-monitor"
+version = "0.1.0"
+description = ""
+authors = ["RIDCorix <ridcorix@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiohttp = "^3.9.5"
+aiosqlite = "^0.20.0"
+discord-py = "^2.4.0"
+python-dotenv = "^1.0.1"
+mcstatus = "^11.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

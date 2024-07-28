@@ -12,13 +12,13 @@ import os
 import platform
 import random
 import sys
-
+import datetime
 import aiosqlite
 import discord
 from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from dotenv import load_dotenv
-
+from mc.instance import ServerInstance
 from database import DatabaseManager
 
 if not os.path.isfile(f"{os.path.realpath(os.path.dirname(__file__))}/config.json"):
@@ -56,11 +56,11 @@ intents.webhooks = True
 
 Privileged Intents (Needs to be enabled on developer portal of Discord), please use them only if you need them:
 intents.members = True
-intents.message_content = True
 intents.presences = True
 """
 
 intents = discord.Intents.default()
+intents.message_content = True
 
 """
 Uncomment this if you want to use prefix (normal) commands.
@@ -140,6 +140,7 @@ class DiscordBot(commands.Bot):
         self.logger = logger
         self.config = config
         self.database = None
+        self.server_instance = ServerInstance.start()
 
     async def init_db(self) -> None:
         async with aiosqlite.connect(
@@ -174,6 +175,26 @@ class DiscordBot(commands.Bot):
         """
         statuses = ["with you!", "with Krypton!", "with humans!"]
         await self.change_presence(activity=discord.Game(random.choice(statuses)))
+
+    @tasks.loop(minutes=10)
+    async def auto_stop_server(self) -> None:
+        """
+        Setup the game status task of the bot.
+        """
+        schedule, draining = self.database.get_schedule()
+        if datetime.datetime.now().time() < schedule:
+            return
+
+        if draining:
+            self.server_instance.broadcast("Stopping server now...")
+            self.server_instance.stop()
+            self.logger.info("Server stopped")
+            # os.system('shutdown -s')
+            return
+        self.server_instance.broadcast("Server will be stopped in 10 minutes")
+        # if self.server_instance.status().players.online != 0:
+
+        self.database.set_to_draining()
 
     @status_task.before_loop
     async def before_status_task(self) -> None:
